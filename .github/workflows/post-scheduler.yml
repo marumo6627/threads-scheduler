@@ -1,0 +1,17 @@
+name: Post Scheduler
+on:
+  schedule:
+    - cron: '*/5 22,23,0-14 * * *'   # UTC=JST07:00〜23:55。バックアップ用(主起動はcron-job.org)
+  workflow_dispatch: {}
+concurrency: { group: post-scheduler, cancel-in-progress: false }
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - env:
+          THREADS_TOKENS: ${{ secrets.THREADS_TOKENS }}
+          POSTS_JSON: ${{ secrets.POSTS_JSON }}
+        run: node scripts/post-scheduler.mjs

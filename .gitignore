@@ -1,0 +1,22 @@
+# --- 秘密情報（絶対にコミットしない） ---
+scripts/tokens.env
+scripts/reply_parts.json
+refreshed.json
+
+# --- コンテンツ・ノウハウ（公開リポには出さない） ---
+# 公開リポに置くのは scripts/ と .github/workflows/ の「汎用プラミング」だけ。
+# 本文・返信文・勝ちパターン・ペルソナは Secrets とローカルにのみ置く。
+posts/
+accounts/
+metrics/
+docs/
+.claude/
+assets/
+output/
+
+# --- その他 ---
+node_modules/
+.DS_Store
+
+# 運用ルール（手法が書かれているため公開しない）
+CLAUDE.md

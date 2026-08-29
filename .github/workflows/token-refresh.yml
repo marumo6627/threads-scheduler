@@ -1,0 +1,21 @@
+name: Token Refresh
+on:
+  schedule:
+    - cron: '0 3 * * 0'   # 毎週日曜03:00 UTC
+  workflow_dispatch: {}
+concurrency: { group: token-refresh, cancel-in-progress: false }
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: 更新
+        env: { THREADS_TOKENS: '${{ secrets.THREADS_TOKENS }}' }
+        run: node scripts/refresh-tokens.mjs > refreshed.json
+      - name: Secret書き戻し
+        env: { GH_TOKEN: '${{ secrets.GH_PAT }}' }
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::GH_PAT未設定=書き戻しスキップ"; exit 0; fi
+          gh secret set THREADS_TOKENS -R ${{ github.repository }} < refreshed.json
