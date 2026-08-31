@@ -32,6 +32,7 @@ GitHub の `schedule` は無料枠だとドロップされ、日本の早朝枠�
 | `posts/` | 日次の投稿データ `YYYY-MM-DD.json` | ❌ gitignore |
 | `metrics/` | `/review` に食わせる実績数値 | ❌ gitignore |
 | `docs/` | 元バンドルの参照資料・サンプル | ❌ gitignore |
+| `assets/` | 投稿画像（raw URL で Threads に配信） | ✅ push する |
 
 ## 現在の状態
 
@@ -39,11 +40,10 @@ GitHub の `schedule` は無料枠だとドロップされ、日本の早朝枠�
 |---|---|
 | `scripts/*.mjs` 4本 | ✅ 構文チェック済。post-scheduler はドライランで日付/時刻判定を確認済 |
 | `.github/workflows/*.yml` 3本 | ✅ 配置済（GitHubリポ未作成のため未稼働） |
-| `/today` `/review` | ✅ 実行可能。ただし `/today` の画像・スプレッドシート連携は【未接続】 |
-| `accounts/0*.md` ペルソナ | ⚠️ learnings から復元した**下書き**。【要記入】の声・絵文字プール・ハンドルは運用者が埋める |
-| `accounts/07_hana_pools.md` | ❌ 未作成（marketer が参照） |
-| `.claude/agents/videographer.md` | ❌ 未同梱（鬼頭の動画フローは保留中なので当面不要） |
-| GitHubリポ・Secrets・cron-job.org | ❌ 未設定（本人操作が必要） |
+| `/today` `/review` | ✅ 実行可能 |
+| 画像投稿 | ✅ `assets/` → raw URL → `media_type: IMAGE`。Threads側の取得を検証済み |
+| `accounts/moon_kyundaily.md` | ✅ 実データ（50投稿＋インサイト）から構築 |
+| Secrets 4つ・cron-job.org | ✅ 設定済み・実投稿と実返信で検証済み |
 | `node` / `gh` | ✅ `~/.local` に導入済（node v24.20.0 LTS / gh 2.98.0）。`gh auth login` は未実行 |
 
 ### ツールチェーン
@@ -62,13 +62,30 @@ Homebrew に移行する場合は `brew install node gh` の後、`~/.local/bin`
 # 1. その日の投稿を生成（Claude Code 内で）
 /today 2026-08-29          # → posts/2026-08-29.json
 
-# 2. Secret に反映（当日＋翌日をまとめて渡せば前夜仕込み可）
+# 2. Secret に反映（★渡した日付で POSTS_JSON を「上書き」する。追加ではない）
 node scripts/publish-day.mjs 2026-08-29 2026-08-30
 
 # 3. あとは cron-job.org が15分ごとに起動する
 ```
 
+> ⚠️ **`publish-day.mjs` は上書き。** 当日分がまだ未投稿のまま翌日分だけを渡すと、当日分が消える。
+> 当日分が残っているときは必ず両方の日付を渡すこと。
+
+画像を付ける場合は、`assets/` に置いてから:
+
+```sh
+node scripts/publish-images.mjs      # push して raw URL の到達を確認
+# posts/YYYY-MM-DD.json に "image": "assets/xxx.jpg" を足す
+node scripts/publish-day.mjs YYYY-MM-DD
+```
+
+```sh
+# 実績を取得して metrics/ に保存（/review の入力）
+node scripts/fetch-metrics.mjs
+```
+
 数値がたまったら `/review` で `accounts/learnings/` を更新する。
+投稿枠と検証中の実験は `accounts/learnings/_experiments.md` を参照。
 
 ## 動作確認
 
