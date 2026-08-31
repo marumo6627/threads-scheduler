@@ -10,7 +10,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const A = 'https://graph.threads.net/v1.0';
 const DRY = process.argv.includes('--dry');
-const GRACE_MIN = 110;   // 予定時刻から◯分以内なら投稿。cron間引きを吸収しつつ最短の枠間隔を割らない上限
+const GRACE_MIN = 180;   // 予定時刻から◯分以内なら投稿。起動が飛んだときの取りこぼしを防ぐ
+// 2026-08-31: 110→180 に拡大。cron-job.org の起動が2h47m空き、19:00の投稿が112分遅れ=2分差で
+// GRACE を超えて落ちた実例があるため。GitHub の schedule は */5 設定でも実測5〜6時間に1回しか
+// 発火せず保険にならない。副作用として、起動が大きく空いた場合は予定より最大3時間遅れて投稿される。
 // 画像は公開リポの assets/ に置き、raw URL で Threads に渡す（Drive/rclone 不要）
 const RAW_BASE = process.env.RAW_BASE || 'https://raw.githubusercontent.com/marumo6627/threads-scheduler/main/';
 const DELAY_MS = 3000;
