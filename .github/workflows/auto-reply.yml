@@ -14,4 +14,4 @@ jobs:
       - env:
           THREADS_TOKENS: ${{ secrets.THREADS_TOKENS }}
           REPLY_PARTS: ${{ secrets.REPLY_PARTS }}
-        run: node scripts/auto-reply.mjs
+        run: node scripts/auto-reply.mjs --cap 8
