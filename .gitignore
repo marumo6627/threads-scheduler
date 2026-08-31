@@ -11,8 +11,9 @@ accounts/
 metrics/
 docs/
 .claude/
-assets/
 output/
+
+# assets/ は公開する（投稿画像を raw URL で配信するため）
 
 # --- その他 ---
 node_modules/

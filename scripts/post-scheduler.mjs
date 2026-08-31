@@ -11,6 +11,8 @@ const ROOT = join(HERE, '..');
 const A = 'https://graph.threads.net/v1.0';
 const DRY = process.argv.includes('--dry');
 const GRACE_MIN = 110;   // 予定時刻から◯分以内なら投稿。cron間引きを吸収しつつ最短の枠間隔を割らない上限
+// 画像は公開リポの assets/ に置き、raw URL で Threads に渡す（Drive/rclone 不要）
+const RAW_BASE = process.env.RAW_BASE || 'https://raw.githubusercontent.com/marumo6627/threads-scheduler/main/';
 const DELAY_MS = 3000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -51,8 +53,14 @@ async function alreadyPosted(tok, text) {
   const cutoff = Date.now() - 20 * 3600 * 1000; // 20時間以内の投稿だけで重複判定(前日の同一フック誤マッチ防止)
   return (r.data || []).some(p => (p.text || '').slice(0, 24) === key && Date.parse(p.timestamp || 0) >= cutoff);
 }
-async function pub(tok, text, replyTo) {
-  const body = { media_type: 'TEXT', text };
+// p.image は 'assets/xxx.jpg'(リポ相対) か 'https://...'(そのまま) のどちらでも可
+function imageUrl(img) {
+  if (!img) return null;
+  return /^https?:\/\//.test(img) ? img : RAW_BASE + String(img).replace(/^\/+/, '');
+}
+async function pub(tok, text, replyTo, img) {
+  const url = imageUrl(img);
+  const body = url ? { media_type: 'IMAGE', image_url: url, text } : { media_type: 'TEXT', text };
   if (replyTo) body.reply_to_id = replyTo;
   let j = await jsonFetch(`${A}/me/threads`, { method:'POST', headers:{ 'Authorization':`Bearer ${tok}`, 'Content-Type':'application/json' }, body: JSON.stringify(body) });
   if (!j.id) throw new Error('container失敗: ' + JSON.stringify(j).slice(0,160));
@@ -69,8 +77,8 @@ for (const p of due) {
   if (!tok) { console.log(`  ⚠️ ${p.account} token無し`); continue; }
   try {
     if (await alreadyPosted(tok, p.text)) { console.log(`  ⏭️ ${p.account} ${p.slot} 既投稿スキップ`); skip++; continue; }
-    if (DRY) { console.log(`  [DRY] ${p.account} ${p.slot} ${p.time}`); continue; }
-    const postId = await pub(tok, p.text);
+    if (DRY) { console.log(`  [DRY] ${p.account} ${p.slot} ${p.time}${p.image ? ' 画像=' + p.image : ''}`); continue; }
+    const postId = await pub(tok, p.text, null, p.image);
     const hasBodyPrompt = /コメントして|コメントで/.test(p.text);
     if (p.cta_comment && !hasBodyPrompt) { await sleep(DELAY_MS); try { await pub(tok, p.cta_comment, postId); } catch (e) {} }
     if (p.tree_reply) { await sleep(DELAY_MS); try { await pub(tok, p.tree_reply, postId); } catch (e) {} }
