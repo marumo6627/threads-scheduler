@@ -80,9 +80,15 @@ node scripts/publish-day.mjs YYYY-MM-DD
 ```
 
 ```sh
+# 投稿済みか未投稿かを確認（★本文を修正する前に必ず実行）
+node scripts/check-posted.mjs [YYYY-MM-DD]
+
 # 実績を取得して metrics/ に保存（/review の入力）
 node scripts/fetch-metrics.mjs
 ```
+
+> ⚠️ **公開済みの投稿は `posts/*.json` を書き換えても直らない。**
+> 本文が変わると重複判定をすり抜け、**同じ内容が二重投稿される**（2026-09-05 に発生）。
 
 数値がたまったら `/review` で `accounts/learnings/` を更新する。
 投稿枠と検証中の実験は `accounts/learnings/_experiments.md` を参照。
