@@ -9,7 +9,8 @@ const API = 'https://graph.threads.net/v1.0';
 const args = process.argv.slice(2);
 const DRY = args.includes('--dry');
 const capArg = args.indexOf('--cap');
-const RUN_CAP = capArg >= 0 ? Number(args[capArg + 1]) : Infinity; // 既定=上限なし。--cap で制限可
+const RUN_CAP = capArg >= 0 ? Number(args[capArg + 1]) : Infinity; // ★アカウントごとの上限。
+// 2026-09-06: 全体上限だと配列の後ろのアカ(ofuku)に永久に到達しない不具合があったため、アカ単位に変更
 const POST_WINDOW_H = 40;   // 直近◯時間の自分の投稿のコメントだけ対象
 const DELAY_MS = 3000;      // 返信ごとの間隔(スパム判定回避=本当のブレーキ)
 const TIMEOUT_MS = 12000;
@@ -41,7 +42,7 @@ async function main() {
   const now = Date.now();
   let seq = 0, posted = 0; const summary = {};
   for (const acc of tokens) {
-    if (posted >= RUN_CAP) break;
+    let accPosted = 0;              // ★アカウントごとにカウント
     const parts = PARTS[acc.account];
     if (!parts) continue; // テンプレのないアカはスキップ
     const tok = encodeURIComponent(acc.access_token);
@@ -53,18 +54,18 @@ async function main() {
     const posts = (postsRes.ok && Array.isArray(postsRes.data.data) ? postsRes.data.data : [])
       .filter(p => { const ts = Date.parse(p.timestamp || ''); return p.id && !isNaN(ts) && (now - ts) <= POST_WINDOW_H * 3600 * 1000; });
     for (const p of posts) {
-      if (posted >= RUN_CAP) break;
+      if (accPosted >= RUN_CAP) break;
       const repRes = await apiCall('GET', `${API}/${p.id}/replies?fields=id,text,username,timestamp&limit=50&access_token=${tok}`);
       const comments = (repRes.ok && Array.isArray(repRes.data.data)) ? repRes.data.data : [];
       for (const c of comments) {
-        if (posted >= RUN_CAP) break;
+        if (accPosted >= RUN_CAP) break;
         const cid = String(c.id || ''); const text = String(c.text || ''); const user = String(c.username || '');
         if (!cid || !text.trim() || user === myUser) continue;
         if (await alreadyReplied(cid, myUser, tok)) continue;
         // open/mid/emoji を互いに素の乗数で回して near-dup を避ける
         const reply = parts.open[seq % parts.open.length] + parts.mid[(seq*3) % parts.mid.length] + parts.emoji[(seq*2+1) % parts.emoji.length];
         seq++;
-        if (DRY) { console.log(`  [DRY][${acc.account}] @${user} → 「${reply}」`); posted++; summary[acc.account]++; continue; }
+        if (DRY) { console.log(`  [DRY][${acc.account}] @${user} → 「${reply}」`); posted++; accPosted++; summary[acc.account]++; continue; }
         const cr = await apiCall('POST', `${API}/me/threads?media_type=TEXT&text=${encodeURIComponent(reply)}&reply_to_id=${encodeURIComponent(cid)}&access_token=${tok}`);
         if (!cr.ok || !cr.data.id) continue;
         await sleep(2000);
@@ -75,7 +76,7 @@ async function main() {
           if (pub.ok && pub.data.id) { published = true; break; }
         }
         if (!published) continue;
-        posted++; summary[acc.account]++;
+        posted++; accPosted++; summary[acc.account]++;
         await sleep(DELAY_MS);
       }
     }
