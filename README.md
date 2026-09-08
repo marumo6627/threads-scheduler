@@ -87,6 +87,9 @@ node scripts/check-posted.mjs [YYYY-MM-DD]
 node scripts/fetch-metrics.mjs
 ```
 
+> ⚠️ **翌日分は前日のうちに作る。** 当日分が無いと `post-scheduler` がワークフローを失敗させ、
+> GitHub から通知が届く（2026-09-08 に生成を忘れて午前中の枠を落としたため追加）。
+>
 > ⚠️ **公開済みの投稿は `posts/*.json` を書き換えても直らない。**
 > 本文が変わると重複判定をすり抜け、**同じ内容が二重投稿される**（2026-09-05 に発生）。
 
