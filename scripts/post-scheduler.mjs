@@ -31,12 +31,25 @@ if (process.env.POSTS_JSON) {
   postsRaw = zlib.gunzipSync(Buffer.from(process.env.POSTS_JSON, 'base64')).toString('utf8');
 } else {
   const postsPath = join(ROOT, 'posts', `${today}.json`);
-  if (!existsSync(postsPath)) { console.log(`[post-scheduler] データ無し → 何もしない`); process.exit(0); }
+  if (!existsSync(postsPath)) {
+    console.error(`::error::[post-scheduler] ${today} の投稿データがありません。posts/${today}.json を作成してください`);
+    process.exit(1);   // ★2026-09-08: データ未作成に気づけるよう失敗させる
+  }
   postsRaw = readFileSync(postsPath, 'utf8');
 }
 const parsed = JSON.parse(postsRaw);
 // 配列(単日) または { 'YYYY-MM-DD': [...] }(複数日) を許容。複数日なら今日(JST)分を選ぶ
 const posts = Array.isArray(parsed) ? parsed : (parsed[today] || []);
+
+// ★2026-09-08: 当日分が0本ならワークフローを失敗させて通知する。
+// それまでは「データ無し → 何もしない」で正常終了しており、
+// 生成を忘れていても気づけず、09-08 は 05:30〜16:00 の枠を丸ごと落とした。
+const todays = posts.filter(p => !p.date || p.date === today);
+if (!todays.length) {
+  console.error(`::error::[post-scheduler] ${today} の投稿が0本です。POSTS_JSON に当日分が入っていません`);
+  console.error(`  → node scripts/publish-day.mjs ${today} で反映してください`);
+  process.exit(1);
+}
 
 const due = [];
 for (const p of posts) {
