@@ -7,6 +7,7 @@ concurrency: { group: auto-reply, cancel-in-progress: false }
 jobs:
   reply:
     runs-on: ubuntu-latest
+    timeout-minutes: 14
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -14,4 +15,4 @@ jobs:
       - env:
           THREADS_TOKENS: ${{ secrets.THREADS_TOKENS }}
           REPLY_PARTS: ${{ secrets.REPLY_PARTS }}
-        run: node scripts/auto-reply.mjs --cap 8
+        run: node scripts/auto-reply.mjs --cap 16
