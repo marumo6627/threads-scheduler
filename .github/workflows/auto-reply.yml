@@ -3,7 +3,11 @@ on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch: {}
-concurrency: { group: auto-reply, cancel-in-progress: false }
+# ★cancel-in-progress: true（2026-09-13）。false だと GitHub のランナー待ちで先頭が
+# queued のまま詰まった時に後続が全部 cancelled になり、復旧まで止まる（今回2時間）。
+# true にすると新しい run が古いものを打ち切って進むので、15分後に自動復旧する。
+# 重複防止は post-scheduler=本文先頭24文字 / auto-reply=返信直前のAPI確認で担保済み。
+concurrency: { group: auto-reply, cancel-in-progress: true }
 jobs:
   reply:
     runs-on: ubuntu-latest
