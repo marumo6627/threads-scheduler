@@ -35,7 +35,12 @@ console.log(`\n${date} 型の並び（読者視点で正規化）\n`);
 // koala は使える型が「星座ランキング」1種しかない（2026-09-12 生まれ月廃止 /
 // 時刻分岐は EXP-11・EXP-12 で 15v💬0・38v💬0 と不発）。連続は避けられないため除外する。
 // 型が増えたらこの除外を外すこと。
-const EXEMPT = { koala_spirit7: '使える型が星座ランキング1種のみ' };
+const EXEMPT = {
+  koala_spirit7: '使える型が星座ランキング1種のみ',
+  // rui も 2026-09-13 に時刻分岐を全廃（n=4 中央値224v・最高324で頭打ち。
+  // 上位5本はすべて星座top3＋否定フックで3,251〜5,366）。星座top3に寄せる。
+  rui_blackmagic: '時刻分岐を全廃し星座top3に寄せたため',
+};
 
 for (const [acc, list] of Object.entries(byAcc)) {
   list.sort((a, b) => (a.time < b.time ? -1 : 1));
