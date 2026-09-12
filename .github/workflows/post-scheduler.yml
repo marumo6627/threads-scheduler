@@ -15,3 +15,10 @@ jobs:
           THREADS_TOKENS: ${{ secrets.THREADS_TOKENS }}
           POSTS_JSON: ${{ secrets.POSTS_JSON }}
         run: node scripts/post-scheduler.mjs
+      # ★翌日分が入っていなければ失敗させて通知する(2026-09-11/12 の生成漏れ対策)。
+      # JST 20時台/22時台/23時台の最初の実行だけ判定するので、通知は1日最大3回。
+      # 投稿ステップの後に置く。ここが落ちても当日の投稿には影響しない。
+      - name: 翌日分の在庫確認
+        env:
+          POSTS_JSON: ${{ secrets.POSTS_JSON }}
+        run: node scripts/check-tomorrow.mjs
