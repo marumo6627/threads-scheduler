@@ -32,15 +32,21 @@ for (const p of posts) (byAcc[p.account] = byAcc[p.account] || []).push(p);
 
 let dup = 0;
 console.log(`\n${date} 型の並び（読者視点で正規化）\n`);
+// koala は使える型が「星座ランキング」1種しかない（2026-09-12 生まれ月廃止 /
+// 時刻分岐は EXP-11・EXP-12 で 15v💬0・38v💬0 と不発）。連続は避けられないため除外する。
+// 型が増えたらこの除外を外すこと。
+const EXEMPT = { koala_spirit7: '使える型が星座ランキング1種のみ' };
+
 for (const [acc, list] of Object.entries(byAcc)) {
   list.sort((a, b) => (a.time < b.time ? -1 : 1));
-  console.log(`@${acc}`);
+  console.log(`@${acc}${EXEMPT[acc] ? `  ※連続チェック除外（${EXEMPT[acc]}）` : ''}`);
   let prev = null;
   for (const p of list) {
     const k = normKata(p.kata);
     const same = prev === k;
-    if (same) dup++;
-    console.log(`  ${same ? '❌ 連続' : '     '} ${p.time}  ${k.padEnd(14)} ${same ? `（元: ${p.kata}）` : ''}`);
+    if (same && !EXEMPT[acc]) dup++;
+    const mark = same ? (EXEMPT[acc] ? '⚠️ 連続' : '❌ 連続') : '     ';
+    console.log(`  ${mark} ${p.time}  ${k.padEnd(14)} ${same ? `（元: ${p.kata}）` : ''}`);
     prev = k;
   }
   console.log('');
