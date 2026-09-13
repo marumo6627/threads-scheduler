@@ -12,8 +12,9 @@ const capArg = args.indexOf('--cap');
 const RUN_CAP = capArg >= 0 ? Number(args[capArg + 1]) : Infinity; // ★アカウントごとの上限。
 // 2026-09-06: 全体上限だと配列の後ろのアカ(ofuku)に永久に到達しない不具合があったため、アカ単位に変更
 const POST_WINDOW_H = 40;   // 直近◯時間の自分の投稿のコメントだけ対象
-// ★何回目のコメントからDM誘導を外すか(2026-09-14)。4アカ横断で数える。
-// 332人が複数アカにコメントしており、毎回DM誘導を返すとテンプレだと分かられる。
+// ★何回目のコメントから常連向けの文面に切り替えるか(2026-09-14)。4アカ横断で数える。
+// 332人が複数アカにコメントしており、毎回同じ誘導文を返すとテンプレだと分かられる。
+// DM誘導自体は常連向けにも残す(運用者判断)。文面だけ「また来てくれたね」型に変える。
 const REPEAT_MIN = Number(process.env.REPEAT_MIN || 3);
 const MAX_PAGES = 8;        // コメント取得のページ上限(=最大800件/投稿)
 const DELAY_MS = 3000;      // 返信ごとの間隔(スパム判定回避=本当のブレーキ)
@@ -124,7 +125,7 @@ async function main() {
     }
     if (waiting > accPosted) console.log(`  [${acc.account}] 未返信の残り ${waiting - accPosted}件（今回 ${accPosted}件・上限 ${RUN_CAP}）`);
   }
-  if (repeatSkipped) console.log(`  常連(${REPEAT_MIN}回以上)へのDM誘導なし返信: ${repeatSkipped}件`);
+  if (repeatSkipped) console.log(`  常連(${REPEAT_MIN}回以上)向けの文面で返信: ${repeatSkipped}件`);
   console.log(`[auto-reply] 完了 / 今回返信=${posted}件 / ${JSON.stringify(summary)}`);
 }
 main().catch(e => { console.error('[auto-reply] 致命的エラー:', e); process.exit(1); });
