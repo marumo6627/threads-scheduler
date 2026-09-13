@@ -1,7 +1,10 @@
 name: Post Scheduler
 on:
   schedule:
-    - cron: '*/5 22,23,0-14 * * *'   # UTC=JST07:00〜23:55。バックアップ用(主起動はcron-job.org)
+    # UTC=JST05:00〜23:55。バックアップ用(主起動はcron-job.org)。
+    # 2026-09-14: 22,23,0-14 だと JST05:00〜07:00 が無防備で、05:30/05:37 の枠に
+    # 代替の起動がなかった。実際 09-13 朝にこの時間帯でハングして114分遅れた。
+    - cron: '*/5 20,21,22,23,0-14 * * *'
   workflow_dispatch: {}
 # ★cancel-in-progress: true（2026-09-13）。false だと GitHub のランナー待ちで先頭が
 # queued のまま詰まった時に後続が全部 cancelled になり、復旧まで止まる（今回2時間）。
