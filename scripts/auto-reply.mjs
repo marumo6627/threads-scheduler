@@ -83,7 +83,11 @@ async function main() {
     for (const c of queue) {
       if (accPosted >= RUN_CAP) break;
       if (await alreadyReplied(c.cid, myUser, tok)) continue;
-      const reply = parts.open[seq % parts.open.length] + parts.mid[(seq*3) % parts.mid.length] + parts.emoji[(seq*2+1) % parts.emoji.length];
+      // ★2026-09-14: emoji を seq%3 にすると open と連動して組み合わせが 12通りに固定される。
+      // open が一周してから emoji を進めることで open×emoji を9通りにし、mid(5)と合わせて45通りにする。
+      const reply = parts.open[seq % parts.open.length]
+        + parts.mid[(seq * 3) % parts.mid.length]
+        + parts.emoji[Math.floor(seq / parts.open.length) % parts.emoji.length];
       seq++;
       if (DRY) { console.log(`  [DRY][${acc.account}] @${c.user} → 「${reply}」`); posted++; accPosted++; summary[acc.account]++; continue; }
       const cr = await apiCall('POST', `${API}/me/threads?media_type=TEXT&text=${encodeURIComponent(reply)}&reply_to_id=${encodeURIComponent(c.cid)}&access_token=${tok}`);
