@@ -11,7 +11,10 @@ const DRY = args.includes('--dry');
 const capArg = args.indexOf('--cap');
 const RUN_CAP = capArg >= 0 ? Number(args[capArg + 1]) : Infinity; // ★アカウントごとの上限。
 // 2026-09-06: 全体上限だと配列の後ろのアカ(ofuku)に永久に到達しない不具合があったため、アカ単位に変更
-const POST_WINDOW_H = 40;   // 直近◯時間の自分の投稿のコメントだけ対象
+// 直近◯時間の自分の投稿のコメントだけ対象。既定40。
+// 2026-09-28: 取りこぼしを一時的に拾うため env で上書きできるようにした。
+// 恒久的に広げないこと（古い投稿に大量の返信が短時間で付くと不自然になる）。
+const POST_WINDOW_H = Number(process.env.POST_WINDOW_H || 40);
 // ★何回目のコメントから常連向けの文面に切り替えるか(2026-09-14)。4アカ横断で数える。
 // 332人が複数アカにコメントしており、毎回同じ誘導文を返すとテンプレだと分かられる。
 // DM誘導自体は常連向けにも残す(運用者判断)。文面だけ「また来てくれたね」型に変える。
@@ -109,9 +112,14 @@ async function main() {
         repeatSkipped++;
       } else {
         // emoji は open が一周してから進める(open と連動させないため)
-        reply = parts.open[seq % parts.open.length]
-          + parts.mid[(seq * 3) % parts.mid.length]
-          + parts.emoji[Math.floor(seq / parts.open.length) % parts.emoji.length];
+        const op = parts.open[seq % parts.open.length];
+        const md = parts.mid[(seq * 3) % parts.mid.length];
+        // ★2026-09-28: open や mid に既に出ている絵文字を末尾に重ねない。
+        // 「ちゃんと見たで👀…送っといて👀」のように同じ絵文字が2回出ていた。
+        const head = op + md;
+        const cand = parts.emoji.filter(e => !head.includes(e));
+        const pool = cand.length ? cand : parts.emoji;
+        reply = head + pool[Math.floor(seq / parts.open.length) % pool.length];
       }
       seq++;
 
