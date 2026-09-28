@@ -15,8 +15,10 @@ const RUN_CAP = capArg >= 0 ? Number(args[capArg + 1]) : Infinity; // ★アカ�
 // 2026-09-28: 取りこぼしを一時的に拾うため env で上書きできるようにした。
 // 恒久的に広げないこと（古い投稿に大量の返信が短時間で付くと不自然になる）。
 const POST_WINDOW_H = Number(process.env.POST_WINDOW_H || 40);
-// ★何回目のコメントから常連向けの文面に切り替えるか(2026-09-14)。4アカ横断で数える。
-// 332人が複数アカにコメントしており、毎回同じ誘導文を返すとテンプレだと分かられる。
+// ★何回目のコメントから常連向けの文面に切り替えるか。
+// 2026-09-14: 導入時は4アカ横断で数えていたが、2026-09-28 にアカウント内に変更。
+// 横断だと「そのアカでは1回目」の人にも「毎回置いてってくれてるやろ」が出ていた
+// (ruru で常連扱い30人のうち、ruru 単独3回以上は3人だけだった)。
 // DM誘導自体は常連向けにも残す(運用者判断)。文面だけ「また来てくれたね」型に変える。
 const REPEAT_MIN = Number(process.env.REPEAT_MIN || 3);
 const MAX_PAGES = 8;        // コメント取得のページ上限(=最大800件/投稿)
@@ -64,7 +66,9 @@ async function main() {
 
   // ── 1周目: 全アカのコメントを集め、username を横断で数える ──
   const perAcc = [];
-  const userCount = {};
+  // ★2026-09-28: 横断で数えると「ruru では1回目」の人まで常連扱いになり、
+  // 「毎回置いてってくれてるやろ」が初対面の相手に出ていた。アカウント内で数える。
+  const userCount = {};   // account -> { user: n }
   for (const acc of tokens) {
     const parts = PARTS[acc.account];
     if (!parts) continue;
@@ -85,7 +89,8 @@ async function main() {
       for (const c of await fetchAllComments(p.id, tok)) {
         const cid = String(c.id || ''), text = String(c.text || ''), user = String(c.username || '');
         if (!cid || !text.trim() || user === myUser) continue;
-        userCount[user] = (userCount[user] || 0) + 1;   // ★返信済みも含めて数える
+        (userCount[acc.account] = userCount[acc.account] || {});
+        userCount[acc.account][user] = (userCount[acc.account][user] || 0) + 1;   // ★返信済みも含めて数える
         if (c.has_replies === true) continue;
         inPost.push({ cid, user, ts: Date.parse(c.timestamp || '') || 0 });
       }
@@ -105,7 +110,8 @@ async function main() {
       if (await alreadyReplied(c.cid, myUser, tok)) continue;
 
       // ★繰り返しコメントしている人にはDM誘導を出さない(2026-09-14)
-      const isRepeat = (userCount[c.user] || 0) >= REPEAT_MIN && Array.isArray(parts.repeat) && parts.repeat.length;
+      const seenHere = (userCount[acc.account] || {})[c.user] || 0;
+      const isRepeat = seenHere >= REPEAT_MIN && Array.isArray(parts.repeat) && parts.repeat.length;
       let reply;
       if (isRepeat) {
         reply = parts.repeat[seq % parts.repeat.length];
@@ -123,7 +129,7 @@ async function main() {
       }
       seq++;
 
-      if (DRY) { console.log(`  [DRY][${acc.account}] @${c.user}(${userCount[c.user]}回)${isRepeat ? '[常連]' : ''} → 「${reply}」`); posted++; accPosted++; summary[acc.account]++; continue; }
+      if (DRY) { console.log(`  [DRY][${acc.account}] @${c.user}(このアカで${seenHere}回)${isRepeat ? '[常連]' : ''} → 「${reply}」`); posted++; accPosted++; summary[acc.account]++; continue; }
       const cr = await apiCall('POST', `${API}/me/threads?media_type=TEXT&text=${encodeURIComponent(reply)}&reply_to_id=${encodeURIComponent(c.cid)}&access_token=${tok}`);
       if (!cr.ok || !cr.data.id) continue;
       await sleep(2000);
