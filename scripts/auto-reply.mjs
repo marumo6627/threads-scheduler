@@ -72,17 +72,23 @@ async function main() {
     const postsRes = await apiCall('GET', `${API}/me/threads?fields=id,timestamp&limit=25&access_token=${tok}`);
     const posts = (postsRes.ok && Array.isArray(postsRes.data.data) ? postsRes.data.data : [])
       .filter(p => { const ts = Date.parse(p.timestamp || ''); return p.id && !isNaN(ts) && (now - ts) <= POST_WINDOW_H * 3600 * 1000; });
+    // ★2026-09-28: 最新の投稿から返す（運用者指定）。
+    // posts は API が新しい順に返すのでその順を保ち、投稿内では古いコメントから返す。
+    // 以前は全投稿を混ぜて古い順にしていたため、今出したばかりの投稿のコメントが
+    // 昨日の投稿の残りを消化するまで後回しになっていた。
     const queue = [];
     for (const p of posts) {
+      const inPost = [];
       for (const c of await fetchAllComments(p.id, tok)) {
         const cid = String(c.id || ''), text = String(c.text || ''), user = String(c.username || '');
         if (!cid || !text.trim() || user === myUser) continue;
         userCount[user] = (userCount[user] || 0) + 1;   // ★返信済みも含めて数える
         if (c.has_replies === true) continue;
-        queue.push({ cid, user, ts: Date.parse(c.timestamp || '') || 0 });
+        inPost.push({ cid, user, ts: Date.parse(c.timestamp || '') || 0 });
       }
+      inPost.sort((a, b) => a.ts - b.ts);   // 投稿内では古い順＝待たせている人から
+      queue.push(...inPost);
     }
-    queue.sort((a, b) => a.ts - b.ts);   // 古い順＝待たせている人から返す
     perAcc.push({ acc, tok, myUser, parts, queue });
   }
 
