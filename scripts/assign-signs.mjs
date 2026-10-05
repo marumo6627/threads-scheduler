@@ -18,7 +18,10 @@ import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const A = 'https://graph.threads.net/v1.0';
-const DAYS = 7;
+// 2026-10-06: 7日から5日に変更。12星座から3つ選ぶ組み合わせは C(12,3)=220 通りしかなく、
+// 1日33本×7日=231通り必要なので在庫切れになる（10-06 に4件衝突して判明）。
+// 5日なら165通りで55通りの余裕がある。
+const DAYS = 5;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ひらがな/漢字の対応。配列の index が正規形
@@ -87,7 +90,7 @@ const targets = posts
   .filter(p => !after || mins(p.time) > mins(after))
   .sort((a, b) => mins(a.time) - mins(b.time));
 
-const dayCount = {}, perAcc = {}, placed = [];
+const dayCount = {}, perAcc = {}, placed = [], collide = [];
 const trios = new Set(pastTrios);
 // 当日の対象外（既に投稿済み・--after で除外した分）も衝突回避の対象に入れる
 for (const p of posts) {
@@ -132,6 +135,7 @@ for (const p of targets) {
     }
     if (!found) pick[n] = orig;
   }
+  if (trios.has(trioKey(pick))) collide.push(`${acc} ${p.time}`);
   trios.add(trioKey(pick));
   for (const i of pick) {
     dayCount[i] = (dayCount[i] || 0) + 1;
@@ -169,7 +173,8 @@ console.log(bad.length ? `❌ 投稿内で重複: ${bad.map(p => p.time).join(' 
 console.log(mix.length ? `❌ 表記が混在: ${mix.map(p => p.time).join(' ')}` : '✅ ひらがな/漢字の混在なし');
 const seen = new Set(pastTrios), rep = [];
 for (const p of posts) { const r = ranksOf(p.text); if (r.length < 3) continue; const k = trioKey(r.slice(0, 3).map(x => x.i)); if (seen.has(k)) rep.push(`${p.account} ${p.time}`); seen.add(k); }
-console.log(rep.length ? `❌ 過去7日と同じ組み合わせ: ${rep.join(' / ')}` : '✅ 過去7日と同じ組み合わせなし');
+console.log(rep.length ? `❌ 過去${DAYS}日と同じ組み合わせ: ${rep.join(' / ')}` : `✅ 過去${DAYS}日と同じ組み合わせなし`);
+if (collide.length) console.log(`⚠ 組み合わせの在庫切れ ${collide.length}件: ${collide.join(' / ')}  → DAYS(${DAYS})を下げるか本数を見直す`);
 
 if (check) { console.log('\n--check のためファイルは書き換えていません'); process.exit(bad.length || mix.length || rep.length ? 1 : 0); }
 writeFileSync(path, JSON.stringify(posts.map(({ _before, _after, ...r }) => r), null, 2) + '\n');
