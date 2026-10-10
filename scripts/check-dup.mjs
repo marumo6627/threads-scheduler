@@ -18,7 +18,10 @@ if (!date) { console.error('使い方: node scripts/check-dup.mjs <YYYY-MM-DD> [
 const norm = s => s.replace(/[「」『』。、！？　\s]/g, '');
 // 順位行(1位 ◯◯座 / 第1位 ◯◯座)と分岐行を除いた「地の文」
 const body = t => t.split('\n')
-  .filter(l => l.trim() && !/^第?[0-9]位[　\s]/.test(l) && !/^『/.test(l))
+  // ★2026-10-10: 分岐行(『…』)の除外をやめた。moon の時刻分岐は10行中7行が
+  // 毎日完全に同じで、それを検査対象から外していたため気づけなかった。
+  // 順位行だけは星座名が入るので除外を続ける（assign-signs が別に散らす）。
+  .filter(l => l.trim() && !/^第?[0-9]位[　\s]/.test(l))
   .slice(1)                      // 1行目(フック)も除く
   .map(l => norm(l)).join('|');
 
