@@ -74,6 +74,36 @@ async function fetchRepliedSet(tok, sinceMs) {
   }
   return set;
 }
+// ★2026-10-19: 自分の返信に付いた返信（2段目）を拾う。
+// 「DMに『鑑定』と送って」と案内すると、DMではなくコメント欄に「鑑定」と返す人が多い。
+// 5アカで59件中54件(92%)が「鑑定」。いちばん熱量が高い層なのに、
+// 自動返信は投稿への直接コメントしか見ていないため完全に放置されていた。
+async function fetchNested(tok, myUser, sinceMs, repliedSet) {
+  const mine = [];
+  let url = `${API}/me/replies?fields=id,timestamp,has_replies&limit=100&access_token=${tok}`;
+  for (let page = 0; url && page < 10; page++) {
+    const r = await apiCall('GET', url);
+    if (!r.ok || !Array.isArray(r.data.data)) break;
+    let stop = false;
+    for (const p of r.data.data) {
+      if (Date.parse(p.timestamp || 0) < sinceMs) { stop = true; continue; }
+      if (p.has_replies === true) mine.push(p.id);
+    }
+    if (stop) break;
+    url = r.data.paging?.next || null;
+  }
+  const out = [];
+  for (const id of mine) {
+    const r = await apiCall('GET', `${API}/${id}/replies?fields=id,username,text,timestamp&access_token=${tok}`);
+    if (!r.ok) continue;
+    for (const c of (r.data.data || [])) {
+      const cid = String(c.id || ''), user = String(c.username || '');
+      if (!cid || user === myUser || repliedSet.has(cid)) continue;
+      out.push({ cid, user, ts: Date.parse(c.timestamp || '') || 0, guide: true });
+    }
+  }
+  return out;
+}
 async function alreadyReplied(cid, myUser, tok) {
   const r = await apiCall('GET', `${API}/${cid}/replies?fields=username&access_token=${tok}`);
   if (!r.ok) return true; // 確認できない時は安全側=スキップ
@@ -120,6 +150,13 @@ async function main() {
       inPost.sort((a, b) => a.ts - b.ts);   // 投稿内では古い順＝待たせている人から
       queue.push(...inPost);
     }
+    // 2段目（「鑑定」とコメント欄に書いている人）を最優先で先頭に置く
+    if (Array.isArray(parts.guide) && parts.guide.length) {
+      const nested = await fetchNested(tok, myUser, now - (POST_WINDOW_H + 24) * 3600 * 1000, repliedSet);
+      nested.sort((a, b) => a.ts - b.ts);
+      queue.unshift(...nested);
+      if (nested.length) console.log(`  [${acc.account}] コメント欄で待っている人 ${nested.length}件`);
+    }
     perAcc.push({ acc, tok, myUser, parts, queue });
   }
 
@@ -136,7 +173,10 @@ async function main() {
       const seenHere = (userCount[acc.account] || {})[c.user] || 0;
       const isRepeat = seenHere >= REPEAT_MIN && Array.isArray(parts.repeat) && parts.repeat.length;
       let reply;
-      if (isRepeat) {
+      if (c.guide) {
+        // コメント欄に「鑑定」と書いている人 → DMの場所を案内する
+        reply = parts.guide[seq % parts.guide.length];
+      } else if (isRepeat) {
         reply = parts.repeat[seq % parts.repeat.length];
         repeatSkipped++;
       } else {
