@@ -54,6 +54,26 @@ async function fetchAllComments(postId, tok) {
   }
   return out;
 }
+// ★2026-10-19: 自分が返信した親コメントIDの集合を作る。
+// それまでは has_replies で弾いていたが、**他人が返信していても true になる**ため、
+// スパム業者が先に返信したコメントが永久に対象外になっていた（実例: ofuku 10-18 18:30 の
+// @seiko03180201「💰️」に業者がLINE誘導を返し、麗華は一度も返せていなかった）。
+async function fetchRepliedSet(tok, sinceMs) {
+  const set = new Set();
+  let url = `${API}/me/replies?fields=id,replied_to,timestamp&limit=100&access_token=${tok}`;
+  for (let page = 0; url && page < 30; page++) {
+    const r = await apiCall('GET', url);
+    if (!r.ok || !Array.isArray(r.data.data)) break;
+    let stop = false;
+    for (const p of r.data.data) {
+      if (Date.parse(p.timestamp || 0) < sinceMs) { stop = true; continue; }
+      if (p.replied_to?.id) set.add(p.replied_to.id);
+    }
+    if (stop) break;
+    url = r.data.paging?.next || null;
+  }
+  return set;
+}
 async function alreadyReplied(cid, myUser, tok) {
   const r = await apiCall('GET', `${API}/${cid}/replies?fields=username&access_token=${tok}`);
   if (!r.ok) return true; // 確認できない時は安全側=スキップ
@@ -79,6 +99,8 @@ async function main() {
     const postsRes = await apiCall('GET', `${API}/me/threads?fields=id,timestamp&limit=25&access_token=${tok}`);
     const posts = (postsRes.ok && Array.isArray(postsRes.data.data) ? postsRes.data.data : [])
       .filter(p => { const ts = Date.parse(p.timestamp || ''); return p.id && !isNaN(ts) && (now - ts) <= POST_WINDOW_H * 3600 * 1000; });
+    // 自分が返信済みの親コメントID（投稿の窓より少し広めに取る）
+    const repliedSet = await fetchRepliedSet(tok, now - (POST_WINDOW_H + 24) * 3600 * 1000);
     // ★2026-09-28: 最新の投稿から返す（運用者指定）。
     // posts は API が新しい順に返すのでその順を保ち、投稿内では古いコメントから返す。
     // 以前は全投稿を混ぜて古い順にしていたため、今出したばかりの投稿のコメントが
@@ -91,7 +113,8 @@ async function main() {
         if (!cid || !text.trim() || user === myUser) continue;
         (userCount[acc.account] = userCount[acc.account] || {});
         userCount[acc.account][user] = (userCount[acc.account][user] || 0) + 1;   // ★返信済みも含めて数える
-        if (c.has_replies === true) continue;
+        // ★has_replies は他人の返信でも true になるので使わない（2026-10-19 修正）
+        if (repliedSet.has(cid)) continue;
         inPost.push({ cid, user, ts: Date.parse(c.timestamp || '') || 0 });
       }
       inPost.sort((a, b) => a.ts - b.ts);   // 投稿内では古い順＝待たせている人から

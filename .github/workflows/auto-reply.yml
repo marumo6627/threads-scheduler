@@ -19,4 +19,6 @@ jobs:
       - env:
           THREADS_TOKENS: ${{ secrets.THREADS_TOKENS }}
           REPLY_PARTS: ${{ secrets.REPLY_PARTS }}
+          # 2026-10-19: 取りこぼし回収のため 40→96h。レート(--cap/DELAY_MS)は据え置き
+          POST_WINDOW_H: '96'
         run: node scripts/auto-reply.mjs --cap 16
