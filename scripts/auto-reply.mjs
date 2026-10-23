@@ -126,7 +126,7 @@ async function main() {
     const meRes = await apiCall('GET', `${API}/me?fields=username&access_token=${tok}`);
     const myUser = meRes.ok ? meRes.data.username : null;
     if (!myUser) { console.log(`  [${acc.account}] トークン失効?`); continue; }
-    const postsRes = await apiCall('GET', `${API}/me/threads?fields=id,timestamp&limit=25&access_token=${tok}`);
+    const postsRes = await apiCall('GET', `${API}/me/threads?fields=id,timestamp&limit=100&access_token=${tok}`);
     const posts = (postsRes.ok && Array.isArray(postsRes.data.data) ? postsRes.data.data : [])
       .filter(p => { const ts = Date.parse(p.timestamp || ''); return p.id && !isNaN(ts) && (now - ts) <= POST_WINDOW_H * 3600 * 1000; });
     // 自分が返信済みの親コメントID（投稿の窓より少し広めに取る）

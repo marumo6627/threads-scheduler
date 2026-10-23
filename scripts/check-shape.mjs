@@ -9,9 +9,22 @@ const SHAPE = [
 ];
 // ruru の【見出し】は実測で確立した枠（1,953v vs 590v）なので外さない。
 // 枠は固定したまま、中の構えを散らす必要があるので【】を剥がして分類する。
+// moon の挨拶と ruru の【】は、実測で確立した「枠」なので剥がして中身で判定する。
 const shapeOf = t => {
-  const inner = t.replace(/^【(.*)】.*$/, '$1');
+  const inner = t.replace(/^【(.*)】.*$/, '$1')
+                 .replace(/^(おはよう|おつかれさま|おやすみ前に|こんばんは|こんにちは)[。、]\s*/, '');
   return (SHAPE.find(([, f]) => f(inner)) || ['— その他'])[0];
+};
+// ★2026-10-11: 連続チェックを免除するアカウント。
+// どれも「1行目の構えを固定すること」自体が実測の勝ち筋で、散らすと落ちる。
+//   moon  1行目は挨拶（8月 219 vs 131・上位8本は8/8）
+//   ruru  見出しは【今/今日/今夜〜】＋状態の名指し（9月 1974 vs それ以外）
+//   ofuku 麗華型の核が同語反復の対句（上位8本の形）
+// koala と rui は固定の勝ち筋が無いのでチェックを続ける。
+const EXEMPT = {
+  'moon.kyundaily': '1行目は挨拶で固定するのが勝ち筋',
+  ruru_h11: '見出しは【今〜】＋状態の名指しで固定するのが勝ち筋',
+  ofuku_kaiun: '麗華型の核が同語反復の対句',
 };
 for (const d of process.argv.slice(2)) {
   const P = JSON.parse(readFileSync(`posts/${d}.json`, 'utf8'));
@@ -22,9 +35,9 @@ for (const d of process.argv.slice(2)) {
   for (const acc of Object.keys(by)) {
     const rows = by[acc].sort((a, b) => (a.time < b.time ? -1 : 1))
       .map(p => ({ t: p.time, s: shapeOf(p.text.split('\n')[0]), h: p.text.split('\n')[0] }));
-    console.log(`  ${acc}`);
+    console.log(`  ${acc}${EXEMPT[acc] ? `  （連続チェック免除: ${EXEMPT[acc]}）` : ''}`);
     rows.forEach((r, i) => {
-      const dup = i > 0 && rows[i - 1].s === r.s;
+      const dup = i > 0 && rows[i - 1].s === r.s && !EXEMPT[acc];
       if (dup) ng++;
       console.log(`    ${r.t} ${r.s.padEnd(10)}${dup ? ' ❌連続' : '        '} ${r.h.slice(0, 32)}`);
     });

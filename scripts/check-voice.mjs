@@ -17,6 +17,10 @@ const NG = {
   ruru_h11: ['じゃん', 'でしょ？', 'だからね'],
   // koala は関西弁も標準語も可。禁止語はない（下の必須チェックで見る）
   koala_spirit7: [],
+  // shi_chan(紫苑) は上品な大阪敬語。一人称「わたし」二人称「あなた」。
+  // タメ口は決め型として意図的に使うので禁止しない（直後に敬語へ戻す運用）。
+  // 関東ギャル語と、他アカの一人称は禁止。
+  shi_chan_178: ['じゃん', 'だからね', 'うちが', 'うちは', 'コアラ'],
 };
 
 // accounts/koala_spirit7.md の「脱力感を作るもの」。1本につき最低1つ入っていること
@@ -27,8 +31,14 @@ const MUST = {
     ['コアラがだらけてる', ['コアラも', 'コアラ寝', '眠いけど']],
   ],
 };
+// ★2026-10-22: 週を数える内部表現が本文に出ていた（実投稿 41/127本）。
+// 読者は「今日が何日目か」を数えていないので、曜日で書く。
+const BANNED_ALL = ['日目', '折り返し', '初日', '二日ぶん', '三日ぶん', '四日ぶん', '五日ぶん', 'あと二日', 'あと三日', 'あと四日'];
+
 const EMOJI = {
   rui_blackmagic: ['🖤', '💋', '🔮', '🕯️', '💜', '✨'],
+  // 返信は投稿に合わせて 💜🌙🐈‍⬛（2026-10-15 運用者指定）。🥂 は鑑定書だけで使う
+  shi_chan_178: ['💜', '🌙', '🐈‍⬛'],
 };
 // 「〜のうちに」は標準語なので一人称の「うち」と区別する
 const clean = t => t.replace(/のうちに/g, '／');
@@ -42,6 +52,7 @@ for (const d of process.argv.slice(2)) {
     for (const p of rows) {
       const t = clean(p.text);
       for (const w of (NG[acc] || [])) if (t.includes(w)) hits.push(`${p.time}「${w}」`);
+      for (const w of BANNED_ALL) if (t.includes(w)) hits.push(`${p.time}「${w}」← 曜日で書く`);
       const pool = EMOJI[acc];
       if (pool) for (const e of [...p.text.matchAll(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu)].map(m => m[0]))
         if (!pool.includes(e)) hits.push(`${p.time} 絵文字${e}`);
