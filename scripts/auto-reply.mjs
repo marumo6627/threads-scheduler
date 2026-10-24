@@ -145,7 +145,10 @@ async function main() {
         userCount[acc.account][user] = (userCount[acc.account][user] || 0) + 1;   // ★返信済みも含めて数える
         // ★has_replies は他人の返信でも true になるので使わない（2026-10-19 修正）
         if (repliedSet.has(cid)) continue;
-        inPost.push({ cid, user, ts: Date.parse(c.timestamp || '') || 0 });
+        // ★2026-10-24: コメント欄に「鑑定」と書いている人は、1段目の聞き返しではなく
+        // 場所の案内(guide)を返す。14日で146人がここで止まっていた（送れたのは7人）。
+        const wantsGuide = /鑑定/.test(text) && Array.isArray(parts.guide) && parts.guide.length;
+        inPost.push({ cid, user, ts: Date.parse(c.timestamp || '') || 0, guide: wantsGuide });
       }
       inPost.sort((a, b) => a.ts - b.ts);   // 投稿内では古い順＝待たせている人から
       queue.push(...inPost);
