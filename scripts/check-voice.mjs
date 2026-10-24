@@ -31,6 +31,14 @@ const MUST = {
     ['コアラがだらけてる', ['コアラも', 'コアラ寝', '眠いけど']],
   ],
 };
+// ★2026-10-25: rui の1行目で主語が落ちて「なにこれ」になる投稿が多発（運用者指摘）。
+// rui の主語は読者の名指し（〜女／〜子／あんた）。これが無いと指示対象が分からない。
+//   ✕ その連絡、待ってる間に何が減った？      ← 誰の何の連絡か不明
+//   ◯ 来ない連絡を待ってる子、その時間ぜんぶ減ってるよ
+// accounts/rui_blackmagic.md の「名指し◯（579 vs 125）」が効いているのは、
+// 名指しがそのまま主語になっているから。
+const NEED_SUBJECT = { rui_blackmagic: /女|子|あんた/ };
+
 // ★2026-10-22: 週を数える内部表現が本文に出ていた（実投稿 41/127本）。
 // 読者は「今日が何日目か」を数えていないので、曜日で書く。
 const BANNED_ALL = ['日目', '折り返し', '初日', '二日ぶん', '三日ぶん', '四日ぶん', '五日ぶん', 'あと二日', 'あと三日', 'あと四日'];
@@ -58,6 +66,11 @@ for (const d of process.argv.slice(2)) {
         if (!pool.includes(e)) hits.push(`${p.time} 絵文字${e}`);
     }
     for (const p of rows) {
+      const sub = NEED_SUBJECT[acc];
+      if (sub) {
+        const head = (p.text.split('\n')[0] || '').replace(/^【[^】]*】/, '');
+        if (!sub.test(head)) hits.push(`${p.time} 主語なし(〜女/〜子/あんたで名指しする)`);
+      }
       const need = MUST[acc];
       if (!need) continue;
       if (!need.some(([, ws]) => ws.some(w => p.text.includes(w))))
