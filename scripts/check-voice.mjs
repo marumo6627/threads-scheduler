@@ -34,10 +34,13 @@ const MUST = {
 // ★2026-10-25: rui の1行目で主語が落ちて「なにこれ」になる投稿が多発（運用者指摘）。
 // rui の主語は読者の名指し（〜女／〜子／あんた）。これが無いと指示対象が分からない。
 //   ✕ その連絡、待ってる間に何が減った？      ← 誰の何の連絡か不明
-//   ◯ 来ない連絡を待ってる子、その時間ぜんぶ減ってるよ
+//   ◯ 来ない連絡を待ってる間、あんたの時間が減ってるよ
 // accounts/rui_blackmagic.md の「名指し◯（579 vs 125）」が効いているのは、
 // 名指しがそのまま主語になっているから。
-const NEED_SUBJECT = { rui_blackmagic: /女|子|あんた/ };
+// ★2026-10-25 運用者指定: 「〜女」より「あんた」を主にする。
+// 「〜女」「〜子」も主語としては成立するので検査は通すが、既定は「あんた」。
+const NEED_SUBJECT = { rui_blackmagic: /あんた|女|子/ };
+const PREFER_SUBJECT = { rui_blackmagic: /あんた/ };
 
 // ★2026-10-22: 週を数える内部表現が本文に出ていた（実投稿 41/127本）。
 // 読者は「今日が何日目か」を数えていないので、曜日で書く。
@@ -56,7 +59,7 @@ for (const d of process.argv.slice(2)) {
   console.log(`\n████ ${d}`);
   for (const acc of [...new Set(P.map(p => p.account))]) {
     const rows = P.filter(p => p.account === acc);
-    const hits = [];
+    const hits = [], warn = [];
     for (const p of rows) {
       const t = clean(p.text);
       for (const w of (NG[acc] || [])) if (t.includes(w)) hits.push(`${p.time}「${w}」`);
@@ -69,7 +72,8 @@ for (const d of process.argv.slice(2)) {
       const sub = NEED_SUBJECT[acc];
       if (sub) {
         const head = (p.text.split('\n')[0] || '').replace(/^【[^】]*】/, '');
-        if (!sub.test(head)) hits.push(`${p.time} 主語なし(〜女/〜子/あんたで名指しする)`);
+        if (!sub.test(head)) hits.push(`${p.time} 主語なし(あんた／〜女／〜子で名指しする)`);
+        else if (PREFER_SUBJECT[acc] && !PREFER_SUBJECT[acc].test(head)) warn.push(`${p.time} 主語が「あんた」でない`);
       }
       const need = MUST[acc];
       if (!need) continue;
@@ -77,7 +81,8 @@ for (const d of process.argv.slice(2)) {
         hits.push(`${p.time} 脱力なし(${need.map(([n]) => n).join('/')}が無い)`);
     }
     bad += hits.length;
-    console.log(`  ${acc.padEnd(16)} ${hits.length ? '❌ ' + hits.join(' ') : '✅'}`);
+    const note = warn.length ? '  ⚠ ' + warn.join(' ') : '';
+    console.log(`  ${acc.padEnd(16)} ${hits.length ? '❌ ' + hits.join(' ') : '✅'}${note}`);
   }
 }
 process.exit(bad ? 1 : 0);
