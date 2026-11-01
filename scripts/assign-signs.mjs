@@ -87,6 +87,9 @@ for (const t of toks) {
 const mins = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
 const targets = posts
   .filter(p => ranksOf(p.text).length >= 3)
+  // ★2026-10-30: 単独星座型（1〜3位すべて同じ星座）は意図的に重複させているので触らない。
+  // 地の文にも星座名が入っているため、順位行だけ書き換えると食い違う。
+  .filter(p => p.kata !== '単独星座')
   .filter(p => !after || mins(p.time) > mins(after))
   .sort((a, b) => mins(a.time) - mins(b.time));
 
@@ -145,7 +148,10 @@ for (const p of targets) {
 
   // 本文を書き換える。表記はその投稿に合わせて統一する（混在していたら漢字に寄せる）
   const kanji = isKanji(p.text);
-  const sep = kanji ? ' ' : '　';
+  // ★2026-10-28: 区切りは「漢字かどうか」ではなく、その投稿が今使っている区切りを保つ。
+  // ofuku を漢字表記に変えたとき、第1位の全角スペースが半角に書き換わってしまうため。
+  const sepHit = p.text.match(/^(?:第?[123]位)([　 ]+)/m);
+  const sep = sepHit ? sepHit[1] : (kanji ? ' ' : '　');
   const cur = ranksOf(p.text);
   let txt = p.text, before = cur.map(c => c.name + '座').join(' / ');
   cur.slice(0, 3).forEach((c, n) => {
